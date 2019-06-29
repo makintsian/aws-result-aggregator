@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "ResultAggregatorQueueName",
+    "ParameterValue": "sqs-result-aggregator"
+  },
+  {
+    "ParameterKey": "ResultAggregatorDLQueueName",
+    "ParameterValue": "sqs-dl-result-aggregator"
+  },
+  {
+    "ParameterKey": "ResultAggregatorLambdaName",
+    "ParameterValue": "lambda-result-aggregator"
+  },
+  {
+    "ParameterKey": "ResultAggregatorRoleName",
+    "ParameterValue": "role-result-aggregator"
+  },
+  {
+    "ParameterKey": "ResultAggregatorDynamoDbTableName",
+    "ParameterValue": "dynamodb-result-aggregator"
+  },
+  {
+    "ParameterKey": "ResultAggregatorDynamoDbHashKeyName",
+    "ParameterValue": "testId"
+  }
+]

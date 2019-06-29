@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates simple result aggregator infrastructure based on SQS, Lambda and DynamoDB"
+
+Parameters:
+  ResultAggregatorQueueName:
+    Type: String
+    Default: sqs-result-aggregator
+  ResultAggregatorDLQueueName:
+    Type: String
+    Default: sqs-dl-result-aggregator
+  ResultAggregatorLambdaName:
+    Type: String
+    Default: lambda-result-aggregator
+  ResultAggregatorRoleName:
+    Type: String
+    Default: role-result-aggregator
+  ResultAggregatorDynamoDbTableName:
+    Type: String
+    Default: dynamodb-result-aggregator
+  ResultAggregatorDynamoDbHashKeyName:
+    Type: String
+    Default: testId
+
+Resources:
+  ResultAggregatorQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Join ["-",[!Ref ResultAggregatorQueueName, !Ref "AWS::Region"]]
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ResultAggregatorDLQueue.Arn
+        maxReceiveCount: 3
+
+  ResultAggregatorDLQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Join ["-",[!Ref ResultAggregatorDLQueueName, !Ref "AWS::Region"]]
+
+  ResultAggregatorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join ["-",[!Ref ResultAggregatorLambdaName, !Ref "AWS::Region"]]
+      Handler: "result_aggregator_application.handler_result_aggregator"
+      Role: !GetAtt ResultAggregatorRole.Arn
+      Code:
+        S3Bucket: "result-aggregator-bucket"
+        S3Key: "result_aggregator_application.zip"
+      Runtime: python3.7
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DDB_TABLE_NAME: !Join ["-",[!Ref ResultAggregatorDynamoDbTableName, !Ref "AWS::Region"]]
+          DDB_HASH_KEY: !Ref ResultAggregatorDynamoDbHashKeyName
+
+  LambdaFunctionEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt ResultAggregatorQueue.Arn
+      FunctionName: !GetAtt ResultAggregatorLambda.Arn
+
+  ResultAggregatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ["-",[!Ref ResultAggregatorRoleName, !Ref "AWS::Region"]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: allowLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: allowSqs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:*
+                Resource:
+                  - !GetAtt ResultAggregatorQueue.Arn
+                  - !GetAtt ResultAggregatorDLQueue.Arn
+        - PolicyName: allowDynamoDb
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                Resource:
+                  - !GetAtt ResultAggregatorDynamoDbTable.Arn
+
+  ResultAggregatorDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Join ["-",[!Ref ResultAggregatorDynamoDbTableName, !Ref "AWS::Region"]]
+      AttributeDefinitions:
+        - AttributeName: !Ref ResultAggregatorDynamoDbHashKeyName
+          AttributeType: "S"
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: !Ref ResultAggregatorDynamoDbHashKeyName
+          KeyType: "HASH"
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
