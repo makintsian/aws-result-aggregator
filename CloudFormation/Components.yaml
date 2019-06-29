@@ -52,10 +52,9 @@ Resources:
           DDB_TABLE_NAME: !Join ["-",[!Ref ResultAggregatorDynamoDbTableName, !Ref "AWS::Region"]]
           DDB_HASH_KEY: !Ref ResultAggregatorDynamoDbHashKeyName
 
-  LambdaFunctionEventSourceMapping:
+  ResultAggregatorEventSourceMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      BatchSize: 1
       Enabled: true
       EventSourceArn: !GetAtt ResultAggregatorQueue.Arn
       FunctionName: !GetAtt ResultAggregatorLambda.Arn
